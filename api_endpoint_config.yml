@@ -1,5 +1,5 @@
 # API endpoint config
-key_prefix:
+endpoint:
  - name: device.signal
    polling_interval:
     - '60': ['rsrq', 'rsrp', 'rssi', 'sinr', 'txpower']
