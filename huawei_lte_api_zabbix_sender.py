@@ -1,6 +1,7 @@
 #
 # Huawei LTE modem monitor for Zabbix
 #
+#
 # - monitor, store last and only report changes for some parameters send data to Zabbix.
 # - collect timestamps
 #
@@ -78,10 +79,7 @@ changes_interesting_1hour =  ['ims','tac','mode', "rrc_status",'plmn','lteulfreq
 interesting = always_interesting +  changes_interesting_10min + changes_interesting_1hour
 polling_interval = 60
 
-api_config = {}
-
-# 100003: No rights (needs login)
-#
+api_config = {} #TODO
 
 def main():
     ten_minutes = 600
@@ -100,7 +98,7 @@ def main():
         not_changed_count = 0
         not_stale_count = 0
         reconnect_count = 0
-        while( count < 2 ):
+        while( True ):
             zapacket = []
             api_endpoint = 'device.signal' #hack until able to parse api endpoints and keys from yaml config
             try:
@@ -114,8 +112,6 @@ def main():
                     stuff = client.device.signal()
             except LoginErrorUsernamePasswordOverrunException as error_msg:
                 # happens if too many failed logins on the front end (from same IP?)
-                # blocks failing ip only? login state -1 means one ip is blocked.
-                #
                 logging.warning('Too many failed logins to modem: {0}'.format(error_msg))
                 logging.warning('Sleeping one minute before trying again')
             except:
@@ -134,11 +130,10 @@ def main():
                     lastvalue[k] = v
                 elif k in interesting: #changes_interesting_10min or k in changes_interesting_1hour:
                     # for now we'll handle the same and test
-                    if ( not lastvalue[k] == v
+                    if  ( not lastvalue[k] == v
                          or (k in changes_interesting_10min and (epoch_time - lastchanged[k] > one_hour ))
                          or (k in changes_interesting_1hour and (epoch_time - lastchanged[k] > ten_minutes ))
-                         #or  True
-                         ):
+                        ):
                         # if value changed. send previous data from previous interval with last interval if not equal.
                         if not lastvalue[k] == v:
                             logging.debug(f'{k} changed from {lastvalue[k]} to {v}')
@@ -163,8 +158,6 @@ def main():
                     logging.debug(f'{k} is not interesting: {k} : {v}')
             print(f'*** Time: {epoch_time} poll count: {count} uptime: {epoch_time - epoch_time_start} ***')
             print(f'*** stale:not {stale_count}:{not_stale_count} , changed:not {changed_count}:{not_changed_count} ***')
-            #pprint.pp(zapacket)
-                   
             epoch_time_last = epoch_time
             #pprint.pp(lastchanged)
             pprint.pp(zapacket )
