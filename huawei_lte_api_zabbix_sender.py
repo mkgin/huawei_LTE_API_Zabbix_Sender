@@ -5,7 +5,7 @@
 # - monitor, store last and only report changes for some parameters send data to Zabbix.
 # - collect timestamps
 #
-# - for some items, send timestamp , mark what was last sent
+# - for some items, send timestamp , mark what was last sent and send when 
 # - tested with a 4G-LTE modem ( Huawei B535-232) so I may have missed some parameters
 #   the would be interesting to 5G (or 3G)
 #
@@ -20,14 +20,13 @@ from huawei_lte_api.exceptions import \
     ResponseErrorLoginCsrfException, \
     ResponseErrorWrongSessionToken, \
     RequestFormatException
-from pyzabbix import ZabbixMetric, ZabbixSender #https://py-zabbix.readthedocs.io/en/latest/sender.html
+from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse  #https://py-zabbix.readthedocs.io/en/latest/sender.html
 import pprint
 import time
 import sys  # to report errors
 import logging
 import os
 import yaml
-
 
 log_level =''
 zabbix_sender_setting = ''
@@ -53,11 +52,12 @@ def load_config():
         config.update(yaml.safe_load(open(configfile_own)))
     else:
         print("Missing",configfile_own )
-    global modem_url, zabbix_sender_setting,monitored_hostname, minimum_polling_interval,log_level
+    global modem_url, zabbix_sender_setting,monitored_hostname, minimum_polling_interval,log_level, do_it_once
     modem_url=config['modem_url']
     zabbix_sender_setting=config['zabbix_sender_setting']
     monitored_hostname = config['monitored_hostname']
     minimum_polling_interval = config['minimum_polling_interval']
+    do_it_once = config['do_it_once']
     log_level = config['log_level']
     logging.basicConfig(level=logging.DEBUG) #FIX this
     
@@ -93,6 +93,10 @@ def main():
         count = 1
         lastchanged={}
         lastvalue={}
+        #counters
+        zabbix_server_processed = 0
+        zabbix_server_failed = 0
+        zabbix_server_total = 0
         changed_count = 0
         stale_count = 0
         not_changed_count = 0
@@ -156,12 +160,21 @@ def main():
                 else:
                     z=1
                     logging.debug(f'{k} is not interesting: {k} : {v}')
-            print(f'*** Time: {epoch_time} poll count: {count} uptime: {epoch_time - epoch_time_start} ***')
-            print(f'*** stale:not {stale_count}:{not_stale_count} , changed:not {changed_count}:{not_changed_count} ***')
+
             epoch_time_last = epoch_time
             #pprint.pp(lastchanged)
-            pprint.pp(zapacket )
-            zasender.send(zapacket)
+            #pprint.pp(zapacket )
+            #zaserver_response={}
+            zaserver_response = zasender.send(zapacket)
+            zabbix_server_processed += zaserver_response.processed
+            zabbix_server_failed += zaserver_response.failed
+            zabbix_server_total += zaserver_response.total
+            print(f'*** Time: {epoch_time} poll count: {count} uptime: {epoch_time - epoch_time_start} ***')
+            print(f'*** stale:not {stale_count}:{not_stale_count} , changed:not {changed_count}:{not_changed_count} ***')
+            print(f'*** zabbix_server totals, processed: {zabbix_server_processed} failed: {zabbix_server_failed} total: {zabbix_server_total} ***')
             count += 1
-            time.sleep(polling_interval)
+            if not do_it_once:
+                time.sleep(polling_interval)
+            else:
+                break
 main()
