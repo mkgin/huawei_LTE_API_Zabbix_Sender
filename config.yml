@@ -18,5 +18,5 @@ minimum_polling_interval: 60
 log_level: 'WARNING'
 
 # testing variables
-zabbix_send: True
+do_zabbix_send: True
 do_it_once: False

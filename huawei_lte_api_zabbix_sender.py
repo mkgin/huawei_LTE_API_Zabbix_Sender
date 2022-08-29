@@ -52,12 +52,13 @@ def load_config():
         config.update(yaml.safe_load(open(configfile_own)))
     else:
         print("Missing",configfile_own )
-    global modem_url, zabbix_sender_setting,monitored_hostname, minimum_polling_interval,log_level, do_it_once
+    global modem_url, zabbix_sender_setting,monitored_hostname, minimum_polling_interval,log_level, do_it_once, do_zabbix_send
     modem_url=config['modem_url']
     zabbix_sender_setting=config['zabbix_sender_setting']
     monitored_hostname = config['monitored_hostname']
     minimum_polling_interval = config['minimum_polling_interval']
     do_it_once = config['do_it_once']
+    do_zabbix_send = config['do_zabbix_send']
     log_level = config['log_level']
     logging.basicConfig(level=logging.DEBUG) #FIX this
     
@@ -164,7 +165,7 @@ def main():
             epoch_time_last = epoch_time
             #pprint.pp(lastchanged)
             #zaserver_response={}
-            if zabbix_send:
+            if do_zabbix_send:
                 zaserver_response = zasender.send(zapacket)
                 zabbix_server_processed += zaserver_response.processed
                 zabbix_server_failed += zaserver_response.failed
@@ -179,5 +180,6 @@ def main():
             if not do_it_once:
                 time.sleep(polling_interval)
             else:
+                print('*** Exiting: do_it_once: True ***')
                 break
 main()
