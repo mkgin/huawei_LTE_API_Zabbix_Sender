@@ -163,12 +163,15 @@ def main():
 
             epoch_time_last = epoch_time
             #pprint.pp(lastchanged)
-            #pprint.pp(zapacket )
             #zaserver_response={}
-            zaserver_response = zasender.send(zapacket)
-            zabbix_server_processed += zaserver_response.processed
-            zabbix_server_failed += zaserver_response.failed
-            zabbix_server_total += zaserver_response.total
+            if zabbix_send:
+                zaserver_response = zasender.send(zapacket)
+                zabbix_server_processed += zaserver_response.processed
+                zabbix_server_failed += zaserver_response.failed
+                zabbix_server_total += zaserver_response.total
+            else:
+                print('***** TEST: not sending *****')
+                pprint.pp(zapacket )
             print(f'*** Time: {epoch_time} poll count: {count} uptime: {epoch_time - epoch_time_start} ***')
             print(f'*** stale:not {stale_count}:{not_stale_count} , changed:not {changed_count}:{not_changed_count} ***')
             print(f'*** zabbix_server totals, processed: {zabbix_server_processed} failed: {zabbix_server_failed} total: {zabbix_server_total} ***')
