@@ -27,12 +27,14 @@ import sys  # to report errors
 import logging
 import os
 import yaml
+import socket #for errors from ZabbixSender
 
 log_level =''
 zabbix_sender_setting = ''
 modem_url = ''
 monitored_hostname = ''
 minimum_polling_interval = ''
+
 
 def load_config():
     # basic config
@@ -53,6 +55,7 @@ def load_config():
     else:
         print("Missing",configfile_own )
     global modem_url, zabbix_sender_setting,monitored_hostname, minimum_polling_interval,log_level, do_it_once, do_zabbix_send
+    global zabbix_send_failed_time_max, zabbix_send_failed_items_max
     modem_url=config['modem_url']
     zabbix_sender_setting=config['zabbix_sender_setting']
     monitored_hostname = config['monitored_hostname']
@@ -60,7 +63,14 @@ def load_config():
     do_it_once = config['do_it_once']
     do_zabbix_send = config['do_zabbix_send']
     log_level = config['log_level']
-    logging.basicConfig(level=logging.DEBUG) #FIX this
+    logging.basicConfig(level=logging.INFO) #FIX this
+    
+    zabbix_send_failed_time_max  = 900 # TODO add to default config
+    zabbix_send_failed_items_max = 500 # TODO add to default config
+
+def save_zabbix_packet_to_disk(object):
+    logging.warning(f'TEST: save_zabbix_packet_to_disk: NOT IMPLEMENTED YET' )
+    
     
 
 #todo
@@ -78,6 +88,8 @@ always_interesting = ['rsrq', 'rsrp', 'rssi', 'sinr', 'txpower' ]
 changes_interesting_10min =  ['pci' ,'cell_id','band','nei_cellid']
 changes_interesting_1hour =  ['ims','tac','mode', "rrc_status",'plmn','lteulfreq', 'ltedlfreq', 'enodeb_id', 'ulbandwidth','dlbandwidth' ]
 interesting = always_interesting +  changes_interesting_10min + changes_interesting_1hour
+
+# will be determined from the smallest interval in the API configuration
 polling_interval = 60
 
 api_config = {} #TODO
@@ -86,9 +98,10 @@ def main():
     ten_minutes = 600
     one_hour = 3600
     load_config()
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     zasender = ZabbixSender(zabbix_sender_setting)
     epoch_time_start = int(time.time())
+    zabbix_send_failed_time = 0
     with Connection(modem_url) as connection:
         client = Client(connection)    
         count = 1
@@ -103,15 +116,15 @@ def main():
         not_changed_count = 0
         not_stale_count = 0
         reconnect_count = 0
+        zapacket = []
         while( True ):
-            zapacket = []
             api_endpoint = 'device.signal' #hack until able to parse api endpoints and keys from yaml config
             try:
                 stuff = client.device.signal()
             except ( ResponseErrorException, ResponseErrorLoginCsrfException, ResponseErrorLoginRequiredException ) as error_msg:
                 logging.warning('Reconnecting due to error: {0}'.format(error_msg))
                 reconnect_count += 1
-                logging.warning('Reconnect count:' ,reconnect_count )
+                logging.warning(f'Reconnect count: {reconnect_count}' )
                 with Connection(modem_url) as connection:
                     client = Client(connection)
                     stuff = client.device.signal()
@@ -166,19 +179,47 @@ def main():
             #pprint.pp(lastchanged)
             #zaserver_response={}
             if do_zabbix_send:
-                zaserver_response = zasender.send(zapacket)
-                zabbix_server_processed += zaserver_response.processed
-                zabbix_server_failed += zaserver_response.failed
-                zabbix_server_total += zaserver_response.total
+                try:
+                    zaserver_response = zasender.send(zapacket)
+                    zapacket = [] #it's sent now ok to erase
+                    zabbix_send_failed_time == 0 #in case it failed earlier
+                    zabbix_server_processed += zaserver_response.processed
+                    zabbix_server_failed += zaserver_response.failed
+                    zabbix_server_total += zaserver_response.total
+                    logging.debug(f'Zabbix Sender succeeded\n{zaserver_response}')
+                except (socket.timeout, socket.error, ConnectionRefusedError ) as error_msg:
+                    logging.warning('Zabbix Sender Failed to send some or all: {0}'.format(error_msg))
+                    # if sending fails, zabbix server may be restarting or server rebooting.
+                    # maybe it gets sent after the next polling attempt.
+                    # if zapacket is more than x items or if failure time greater than x) save to disk
+                    
+                    if zabbix_send_failed_time == 0 : #first fail (after successfully sending or saving)
+                        zabbix_send_failed_time = epoch_time
+                        # could set defaults for failed item sending timeout and count.
+                    if  ( epoch_time - zabbix_send_failed_time > zabbix_send_failed_time_max #900
+                        or len(zapacket) > zabbix_send_failed_items_max #500
+                        ):
+                        logging.error(f'Zabbix Sender failed {epoch_time - zabbix_send_failed_time} seconds ago and {len(zapacket)} items pending.\nWill try to dump them to disk')
+                        save_zabbix_packet_to_disk(zapacket)
+                        zabbix_send_failed_time = epoch_time #
+                        zapacket = [] #it's saved now ok to erase
+                        # clear keys from lastchanged so fresh values are collected to be sent next time
+                        lastchanged={}
+                except:
+                    logging.error("Unexpected error:", sys.exc_info()[0])
+                    raise
+                    
             else:
                 print('***** TEST: not sending *****')
                 pprint.pp(zapacket )
+                zapacket = []
             print(f'*** Time: {epoch_time} poll count: {count} uptime: {epoch_time - epoch_time_start} ***')
             print(f'*** stale:not {stale_count}:{not_stale_count} , changed:not {changed_count}:{not_changed_count} ***')
             print(f'*** zabbix_server totals, processed: {zabbix_server_processed} failed: {zabbix_server_failed} total: {zabbix_server_total} ***')
             count += 1
             if not do_it_once:
                 time.sleep(polling_interval)
+                # break in to smaller sleeps so one can Ctrl-C?
             else:
                 print('*** Exiting: do_it_once: True ***')
                 break
