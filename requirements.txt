@@ -1,3 +1,4 @@
 PyYAML
 huawei_lte_api
-pyzabbix
+py-zabbix
+
