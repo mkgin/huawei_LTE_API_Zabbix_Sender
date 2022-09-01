@@ -30,12 +30,13 @@ import socket #for errors from ZabbixSender
 from huawei_lte_api.Client import Client #https://github.com/Salamek/huawei-lte-api
 from huawei_lte_api.Connection import Connection
 from huawei_lte_api.exceptions import \
-    ResponseErrorException, \
     ResponseErrorLoginRequiredException, \
     ResponseErrorNotSupportedException, \
     ResponseErrorSystemBusyException, \
     ResponseErrorLoginCsrfException, \
     ResponseErrorWrongSessionToken, \
+    LoginErrorUsernamePasswordOverrunException, \
+    ResponseErrorException, \
     RequestFormatException
 from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse
 # https://py-zabbix.readthedocs.io/en/latest/sender.html
@@ -142,6 +143,10 @@ def main():
             api_endpoint = 'device.signal' #hack until able to parse api endpoints and keys from yaml config
             try:
                 stuff = client.device.signal()
+            except LoginErrorUsernamePasswordOverrunException as error_msg:
+                # happens if too many failed logins on the front end (from same IP?)
+                logging.warning('Too many failed logins to modem: {0}'.format(error_msg))
+                logging.warning('Sleeping one minute before trying again')
             except ( ResponseErrorException, ResponseErrorLoginCsrfException,\
                     ResponseErrorLoginRequiredException ) as error_msg:
                 logging.warning('Reconnecting due to error: {0}'.format(error_msg))
@@ -150,10 +155,6 @@ def main():
                 with Connection(modem_url) as connection:
                     client = Client(connection)
                     stuff = client.device.signal()
-            except LoginErrorUsernamePasswordOverrunException as error_msg:
-                # happens if too many failed logins on the front end (from same IP?)
-                logging.warning('Too many failed logins to modem: {0}'.format(error_msg))
-                logging.warning('Sleeping one minute before trying again')
             except:
                 logging.error('Unexpected error: {0}' .sys.exc_info()[0])
                 raise
