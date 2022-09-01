@@ -25,6 +25,15 @@
     * ```
       huawei_lte_api_zabbix_sender.py:154:19: E0701: Bad except clauses order (ResponseErrorException is an ancestor class of LoginErrorUsernamePasswordOverrunException) (bad-except-order)
       ```
+    * this is what happened first:
+	* ```
+	    File "/usr/lib/python3.9/http/client.py", line 276, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+      ```
+	* Connection error logging should be a bit more detailed
+	    * get more info about the order of exceptions in order to be able to
+	    handle them better
 
 ## Zabbix server tests
 
