@@ -279,7 +279,7 @@ def main():
             if len(iv) > 0:
                 zapacket = zapacket + iv
             if len(iv) > 1:
-                logging.info(f'more than one item in iv[]')
+                logging.info(f'more than one item in iv[]') #something changed
         if do_zabbix_send: # send (queued) data to zabbix server
             send_status = send_zabbix_packet(zapacket)
             if send_status:
@@ -297,7 +297,7 @@ def main():
         count += 1
         if not do_it_once:
             time.sleep(polling_interval)
-            # break in to smaller sleeps so one can Ctrl-C?
+            # break in to smaller sleeps so one can Ctrl-C out faster
         else:
             print('*** Exiting: do_it_once: True ***')
             break
