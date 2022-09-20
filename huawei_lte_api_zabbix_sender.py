@@ -42,15 +42,12 @@ from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse
 # https://py-zabbix.readthedocs.io/en/latest/sender.html
 # ZabbixResponse might not be needed
 import yaml
-from api_poll_config import load_api_poll_config, \
-     load_key_prefix_config, \
-     load_polling_interval_minimum
 
 log_level =''
 zabbix_sender_setting = ''
 modem_url = ''
 monitored_hostname = ''
-
+minimum_polling_interval = ''
 # global counters
 #global changed_count, stale_count, not_changed_count, not_stale_count
 changed_count = 0
@@ -82,7 +79,8 @@ changes_interesting_1hour =  ['ims','tac','mode', "rrc_status",'plmn','lteulfreq
 interesting = always_interesting +  changes_interesting_10min + changes_interesting_1hour
 
 # will be determined from the smallest interval in the API configuration
-
+polling_interval = 60
+api_config = {} #TODO
 epoch_time = 0
 ten_minutes = 600
 one_hour = 3600
@@ -108,13 +106,13 @@ def load_config():
         print("Missing",configfile_own )
 
     global modem_url, zabbix_sender_setting,monitored_hostname
-    global log_level, do_it_once, do_zabbix_send
+    global minimum_polling_interval,log_level, do_it_once, do_zabbix_send
     global zabbix_send_failed_time_max, zabbix_send_failed_items_max
 
     modem_url=config['modem_url']
     zabbix_sender_setting=config['zabbix_sender_setting']
     monitored_hostname = config['monitored_hostname']
-    
+    minimum_polling_interval = config['minimum_polling_interval']
     do_it_once = config['do_it_once']
     do_zabbix_send = config['do_zabbix_send']
     log_level = config['log_level']
@@ -123,32 +121,20 @@ def load_config():
     zabbix_send_failed_time_max  = 900 # TODO add to default config
     zabbix_send_failed_items_max = 500 # TODO add to default config
 
-def load_api_config():
-    """Loads the API config"""
-    # Check endpoints are valid
-    # eg: "AttributeError: 'Device' object has no attribute "
-    #     "huawei_lte_api.exceptions.ResponseErrorLoginRequiredException: \
-    #      100003: No rights (needs login)"
-    # see notes in the api config
-    return
-
 def save_zabbix_packet_to_disk():
     """Saves unsent items to Disk"""
     logging.warning(f'TEST: save_zabbix_packet_to_disk: NOT IMPLEMENTED YET' )
 
-def get_api_endpoint( endpoint ):
+def get_api_endpoint():
     """Gets data from endpoint"""
-    # connect to API endpoint ( as api_endpoint ) or eventually
+    # function! connect to API endpoint ( as api_endpoint ) or eventually
     # callable python object... and (return dictionary)
     # TODO: use the api_endpoint
     global api_reconnect_count
-    client_endpoint= f'client.{endpoint}'
-    print(client_endpoint )
     try:
         with Connection(modem_url) as connection:
             client = Client(connection)
-            #stuff = client.device.signal()
-            stuff = eval(client_endpoint)() #not sure if this is evil or insecure
+            stuff = client.device.signal()
             logging.debug(f'Connected on first try' )
     except LoginErrorUsernamePasswordOverrunException as error_msg:
         # happens if too many failed logins on the front end (from same IP?)
@@ -158,8 +144,7 @@ def get_api_endpoint( endpoint ):
         time.sleep(60)
         with Connection(modem_url) as connection:
             client = Client(connection)
-            #stuff = client.device.signal()
-            stuff = eval(client_endpoint)() #not sure if this is evil or insecure
+            stuff = client.device.signal()
     except ( ResponseErrorException, ResponseErrorLoginCsrfException,\
             ResponseErrorLoginRequiredException ) as error_msg:
         logging.warning('Reconnecting due to error: {0}'.format(error_msg))
@@ -167,11 +152,7 @@ def get_api_endpoint( endpoint ):
         logging.warning(f'Modem API reconnect count: {api_reconnect_count}' )
         with Connection(modem_url) as connection:
             client = Client(connection)
-            #stuff = client.device.signal()
-            stuff = eval(client_endpoint)() #not sure if this is evil or insecure
-    except AttributeError:
-        logging.error(f'Configuration error: endpoint: {endpoint} is not available')
-        raise
+            stuff = client.device.signal()
     except:
         logging.error('Unexpected error: {0}' .sys.exc_info()[0])
         raise
@@ -277,51 +258,45 @@ def send_zabbix_packet(zabbix_packet):
 
 def main():
     load_config()
-    
     logging.basicConfig(level=logging.INFO)
-    
-    api_config = yaml.safe_load(open('api_design_test.yml'))
-    key_prefix = load_key_prefix_config(api_config)
-    minimum_polling_interval = load_polling_interval_minimum(api_config)
-    endpoints = api_config['endpoint']
 
     epoch_time_start = int(time.time())
     zabbix_send_failed_time = 0
     #counters
-    count = 1 # count for running a certain number of times, or just keeping track
-    zapacket = [] # packet to be sent
-    
+    count = 1 # count for running a certain number of times.
+    #reconnect_count = 0
+    zapacket = []
+    key_prefix = 'huawei.lte' # name for the start of the zabbix key...
     while True:
-        for endpoint in endpoints:
-            # new outer look to loop through end API endpoints
-            api_endpoint = 'device.signal' #hack until able to parse endpoints and keys from yaml config
-            endpoint_data = get_api_endpoint(endpoint['name'])
-            epoch_time = int(time.time())
-            # collect interesting(changed, stale, always interesting) items for an enpoint
-            for k,v in endpoint_data.items():
-                iv = get_interesting_values( prefix=key_prefix, endpoint=api_endpoint,
-                                             key=k, value=v, poll_time=epoch_time )
-                if len(iv) > 0:
-                    zapacket = zapacket + iv
-                if len(iv) > 1:
-                    logging.info(f'more than one item in iv[]') #something changed
-            if do_zabbix_send: # send (queued) data to zabbix server
-                send_status = send_zabbix_packet(zapacket)
-                if send_status:
-                    zapacket = []
-            else:
-                print('***** TEST: not sending *****')
-                pprint.pp(zapacket )
+        # new outer look to loop through end API endpoints
+        api_endpoint = 'device.signal' #hack until able to parse endpoints and keys from yaml config
+        endpoint_data = get_api_endpoint()
+        epoch_time = int(time.time())
+        # collect interesting(changed, stale, always interesting) items for an enpoint
+        for k,v in endpoint_data.items():
+            iv = get_interesting_values( prefix=key_prefix, endpoint=api_endpoint,
+                                         key=k, value=v, poll_time=epoch_time )
+            if len(iv) > 0:
+                zapacket = zapacket + iv
+            if len(iv) > 1:
+                logging.info(f'more than one item in iv[]') #something changed
+        if do_zabbix_send: # send (queued) data to zabbix server
+            send_status = send_zabbix_packet(zapacket)
+            if send_status:
                 zapacket = []
-            print(f'*** Time: {epoch_time} poll count: {count}',
-                  f' uptime: {epoch_time - epoch_time_start} ***')
-            print(f'*** stale:not {stale_count}:{not_stale_count},',
-                  f' changed:not {changed_count}:{not_changed_count} ***')
-            print(f'*** zabbix_server processed: {zabbix_server_processed},',
-                  f' failed: {zabbix_server_failed}, total: {zabbix_server_total} ***')
-            count += 1
+        else:
+            print('***** TEST: not sending *****')
+            pprint.pp(zapacket )
+            zapacket = []
+        print(f'*** Time: {epoch_time} poll count: {count}',
+              f' uptime: {epoch_time - epoch_time_start} ***')
+        print(f'*** stale:not {stale_count}:{not_stale_count},',
+              f' changed:not {changed_count}:{not_changed_count} ***')
+        print(f'*** zabbix_server processed: {zabbix_server_processed},',
+              f' failed: {zabbix_server_failed}, total: {zabbix_server_total} ***')
+        count += 1
         if not do_it_once:
-            time.sleep(minimum_polling_interval)
+            time.sleep(polling_interval)
             # break in to smaller sleeps so one can Ctrl-C out faster
         else:
             print('*** Exiting: do_it_once: True ***')
