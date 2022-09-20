@@ -61,6 +61,8 @@ endpoint_schema:
 # could have similar for queries with parameters and end up with something
 # a bit more generic that could be useful with other apis
 
+polling_interval_minimum: 250
+
 sending_strategy_default:
   always: true
   stale: 300
