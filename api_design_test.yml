@@ -15,6 +15,8 @@ sending_strategy_default:
   always: true
   stale: 300
 
+polling_interval_minimum: 25
+
 key_prefix: 'huawei.lte'  # name for the start of the zabbix key
 endpoint:
 - name: 'device.signal'
@@ -24,10 +26,10 @@ endpoint:
       - 'rsrq'
     always: true
   key_list2:
-    keys: ['pci', 'cell_id']
-    changes: false
+    keys: ['pci', 'cell_id','rsrp', 'rssi', 'sinr', 'txpower','tac', 'mode', 'rrc_status', 'plmn']
+    changes: true
     previous: true
-    stale: 600
+    stale: 400
   key_list3:
     keys: ['ims']
     changes: true
