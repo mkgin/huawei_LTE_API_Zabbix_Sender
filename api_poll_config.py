@@ -157,7 +157,7 @@ def load_polling_interval_minimum(api_config):
         polling_interval_minimum = api_config['polling_interval_minimum']
     except KeyError:
         polling_interval_minimum = 0
-        endpoints = api_config['endpoint']
+    endpoints = api_config['endpoint']
     for endpoint in endpoints:
         if polling_interval_minimum == 0:
             polling_interval_minimum = endpoint['polling_interval']

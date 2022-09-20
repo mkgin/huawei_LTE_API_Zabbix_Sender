@@ -63,29 +63,15 @@ zabbix_server_processed = 0 #
 zabbix_server_failed = 0    # Zabbix server did not accept (wrong key, wrong type of data)
 zabbix_server_total = 0     #
 zabbix_send_failed_time = 0
+
+# TODO: have these as persistant variables only in get_interesting_values 
 # storage for get_interesting_values()
-# global lastchanged,lastvalue , lastpolled
 lastchanged = {} # time last sent
 lastvalue = {}   # last value
 lastpolled = {}  # time of last poll
 
-
-# always interesting sent every polling interval
-always_interesting = ['rsrq', 'rsrp', 'rssi', 'sinr', 'txpower' ]
-# changes_interesting are sent when changed or when the last result is older
-# than the last one to be sent. When there is a change in value, the previous
-# value is sent also (with timestamp of the previous interval
-# the idea of this is to make graphs look nicer.
-changes_interesting_10min =  ['pci' ,'cell_id','band','nei_cellid']
-changes_interesting_1hour =  ['ims','tac','mode', "rrc_status",'plmn','lteulfreq', 'ltedlfreq',
-                              'enodeb_id', 'ulbandwidth','dlbandwidth' ]
-interesting = always_interesting +  changes_interesting_10min + changes_interesting_1hour
-
-# will be determined from the smallest interval in the API configuration
-
+# TODO: check where epoch_time is really needed...
 epoch_time = 0
-ten_minutes = 600
-one_hour = 3600
 
 def load_config():
     """Loads the YAML config first from config.yml, then own_config.yml"""
@@ -168,6 +154,7 @@ def get_api_endpoint( endpoint ):
         raise
     return stuff
 
+# TODO: think about moving this to api_poll_config
 def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt_key_conf ):
     """Returns list of interesting values as a zabbixmetric
 
@@ -177,14 +164,14 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
     All interesting values are sent the first time they are changed.
 
     Was considering using something other than zabbixmetric, but it is simple
-    enough, and east to read, convert if needed later.
+    enough, and easy to read, convert if needed later.
     """
     logging.debug( f'get_interesting_values( {prefix}, {endpoint_name} , {key}, {value} {poll_time} )' )
     global changed_count, stale_count, not_changed_count, not_stale_count
     ivlist = []
     k=key
     v=value
-    endp_dot_key = endpoint_name + '.' + k
+    endp_dot_key = endpoint_name + '.' + k #long key for storing previous measurments and timestamps
     try:
         keyconf = endpt_key_conf[endpoint_name][k]
     except KeyError:
@@ -303,21 +290,32 @@ def main():
     #counters
     count = 1 # count for running a certain number of times, or just keeping track
     zapacket = [] # packet to be sent
+    endpoint_polled_last={}
     
     while True:
         for endpoint in endpoints: # loop through end API endpoints
-            # TODO: first check if it is time to poll this one
-            endpoint['polling_interval']
-            endpoint_data = get_api_endpoint(endpoint['name'])
             epoch_time = int(time.time())
-            # collect interesting(changed, stale, always interesting) items for an endpoint
-            for k,v in endpoint_data.items():
-                iv = get_interesting_values( prefix=key_prefix, endpoint_name=endpoint['name'],
-                                             key=k, value=v, poll_time=epoch_time, endpt_key_conf=endpoint_key_config )
-                if len(iv) > 0:
-                    zapacket = zapacket + iv
-                if len(iv) > 1:
-                    logging.info(f'more than one item in iv[]') # something changed and previous is sent too
+            # check endpoint_polled_last['endpoint'] and set if not
+            try:
+                endpoint_polled_last['endpoint']
+            except KeyError:
+                endpoint_polled_last['endpoint'] = 0
+            # check if it is time to poll this one
+            if ( endpoint_polled_last['endpoint'] == 0 or
+                 epoch_time - endpoint_polled_last['endpoint'] <= endpoint['polling_interval'] 
+               ):
+                endpoint_data = get_api_endpoint(endpoint['name'])
+                endpoint_polled_last['endpoint'] = epoch_time
+                # collect interesting(changed, stale, always interesting) items for an endpoint
+                for k,v in endpoint_data.items():
+                    iv = get_interesting_values( prefix=key_prefix, endpoint_name=endpoint['name'],
+                                                 key=k, value=v, poll_time=epoch_time, endpt_key_conf=endpoint_key_config )
+                    if len(iv) > 0:
+                        zapacket = zapacket + iv
+                    if len(iv) > 1:
+                        # something changed and previous is sent too
+                        endpoint_name = endpoint['name']
+                        logging.info(f'more than one item in iv {endpoint_name}.{k}')
         if do_zabbix_send: # send (queued) data to zabbix server
             send_status = send_zabbix_packet(zapacket)
             if send_status:
