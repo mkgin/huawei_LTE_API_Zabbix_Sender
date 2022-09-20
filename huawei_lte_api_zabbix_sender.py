@@ -42,7 +42,7 @@ from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse
 # https://py-zabbix.readthedocs.io/en/latest/sender.html
 # ZabbixResponse might not be needed
 import yaml
-from api_poll_config import load_api_poll_config, \
+from api_poll_config import load_api_endpoint_key_config, \
      load_key_prefix_config, \
      load_polling_interval_minimum
 
@@ -123,14 +123,6 @@ def load_config():
     zabbix_send_failed_time_max  = 900 # TODO add to default config
     zabbix_send_failed_items_max = 500 # TODO add to default config
 
-def load_api_config():
-    """Loads the API config"""
-    # Check endpoints are valid
-    # eg: "AttributeError: 'Device' object has no attribute "
-    #     "huawei_lte_api.exceptions.ResponseErrorLoginRequiredException: \
-    #      100003: No rights (needs login)"
-    # see notes in the api config
-    return
 
 def save_zabbix_packet_to_disk():
     """Saves unsent items to Disk"""
@@ -177,26 +169,37 @@ def get_api_endpoint( endpoint ):
         raise
     return stuff
 
-def get_interesting_values( prefix, endpoint , key, value, poll_time ):
-    """Returns list of interesting values.
+def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt_key_conf ):
+    """Returns list of interesting values as a zabbixmetric
 
-    Interesting depends on how they are defined
+    Interesting depends on how they are defined in endpt_key_conf
     always, changed or stale. If changed, the
     previously polled (unchanged) value is also sent.
     All interesting values are sent the first time they are changed.
+
+    Was considering using something other than zabbixmetric, but it is simple
+    enough, and east to read, convert if needed later.
     """
-    logging.debug( f'get_interesting_values( {prefix}, {endpoint} , {key}, {value} {poll_time} )' )
+    logging.warn( f'get_interesting_values( {prefix}, {endpoint_name} , {key}, {value} {poll_time} )' )
     global changed_count, stale_count, not_changed_count, not_stale_count
     ivlist = []
     k=key
     v=value
-    if k in always_interesting:
-        ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
-            f'{prefix}.{endpoint}.{k}' , v, poll_time ) ]
+    try:
+        keyconf = endpt_key_conf[endpoint_name][k]
+    except KeyError:
+        logging.warn(f'{k} not in dict')
+        return ivlist #return empty ivlist
+    #if k in always_interesting:
+    if 'always' in keyconf:
+        if keyconf['always']: # This should always be true
+            ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
+                f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
     elif ( k in interesting ) and (k not in lastchanged): #or lastvalue...
+        print(f'keyconf for {k} : {keyconf} :', ('always' in keyconf))
         logging.debug(f"{k} not in lastchanged {k not in lastchanged}")
         ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
-            f'{prefix}.{endpoint}.{k}' , v, poll_time ) ]
+            f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
         lastchanged[k] = poll_time
         lastpolled[k] = poll_time
         lastvalue[k] = v
@@ -215,7 +218,7 @@ def get_interesting_values( prefix, endpoint , key, value, poll_time ):
                 not_stale_count += 1
                 if lastpolled[k] > lastchanged[k]:
                     ivlist = ivlist + [ ZabbixMetric( monitored_hostname ,
-                        f'{prefix}.{endpoint}.{k}' ,lastvalue[k] , lastpolled[k] ) ]
+                        f'{prefix}.{endpoint_name}.{k}' ,lastvalue[k] , lastpolled[k] ) ]
                     logging.debug(f'{k} changed before last check')
                     logging.debug(f'sending previous data from {poll_time - lastchanged[k]} sec')
             else:
@@ -223,7 +226,7 @@ def get_interesting_values( prefix, endpoint , key, value, poll_time ):
                 stale_count += 1
                 not_changed_count += 1
             ivlist = ivlist + [ ZabbixMetric( monitored_hostname ,
-                f'{prefix}.{endpoint}.{k}' , v, poll_time ) ]
+                f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
             lastchanged[k] = poll_time
             lastpolled[k] = poll_time # update for next time
             lastvalue[k] = v
@@ -283,8 +286,9 @@ def main():
     api_config = yaml.safe_load(open('api_design_test.yml'))
     key_prefix = load_key_prefix_config(api_config)
     minimum_polling_interval = load_polling_interval_minimum(api_config)
+    endpoint_key_config = load_api_endpoint_key_config(api_config)
     endpoints = api_config['endpoint']
-
+    
     epoch_time_start = int(time.time())
     zabbix_send_failed_time = 0
     #counters
@@ -292,19 +296,19 @@ def main():
     zapacket = [] # packet to be sent
     
     while True:
-        for endpoint in endpoints:
-            # new outer look to loop through end API endpoints
-            api_endpoint = 'device.signal' #hack until able to parse endpoints and keys from yaml config
+        for endpoint in endpoints: # loop through end API endpoints
+            #first check if it is time to poll this one
+            endpoint['polling_interval']
             endpoint_data = get_api_endpoint(endpoint['name'])
             epoch_time = int(time.time())
             # collect interesting(changed, stale, always interesting) items for an enpoint
             for k,v in endpoint_data.items():
-                iv = get_interesting_values( prefix=key_prefix, endpoint=api_endpoint,
-                                             key=k, value=v, poll_time=epoch_time )
+                iv = get_interesting_values( prefix=key_prefix, endpoint_name=endpoint['name'],
+                                             key=k, value=v, poll_time=epoch_time, endpt_key_conf=endpoint_key_config )
                 if len(iv) > 0:
                     zapacket = zapacket + iv
                 if len(iv) > 1:
-                    logging.info(f'more than one item in iv[]') #something changed
+                    logging.info(f'more than one item in iv[]') # something changed and previous is sent too
             if do_zabbix_send: # send (queued) data to zabbix server
                 send_status = send_zabbix_packet(zapacket)
                 if send_status:

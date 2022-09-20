@@ -102,7 +102,7 @@ def load_api_endpoint_key_config(api_config):
     
     TODO: some errors if something important missing
     """
-    polling_config={}
+    api_endpoint_key_config={}
     
     #default sending strategy in top level
     sending_strategy_default= api_config['sending_strategy_default']
@@ -120,7 +120,7 @@ def load_api_endpoint_key_config(api_config):
                                                           current_sending_strategy,
                                                           sending_strategy_default)
         print( f' sending_strategy_endpoint: {sending_strategy_endpoint}')
-        polling_config[endpoint['name']] = {}
+        api_endpoint_key_config[endpoint['name']] = {}
         # get keys and apply strategies 
         for keylist in endpoint.keys():
             print( f'FOR2 keylist: {keylist} in {endpoint.keys()}')
@@ -136,7 +136,7 @@ def load_api_endpoint_key_config(api_config):
                         for k in endpoint[keylist]['keys']:
                              print( f'KEY: {k}')
                              kdict= { k : sending_strategy_keylist}
-                             polling_config[endpoint['name']].update( kdict )
+                             api_endpoint_key_config[endpoint['name']].update( kdict )
                     else:
                         print(f'FOR3a skipping {current_key}')
             # if type is not dict check if it is a keylist and iterate            
@@ -146,11 +146,11 @@ def load_api_endpoint_key_config(api_config):
                     for k in endpoint[keylist]:
                         print( f'KEY(keys): {k}')
                         kdict = { k : sending_strategy_endpoint}
-                        polling_config[endpoint['name']].update( kdict )
+                        api_endpoint_key_config[endpoint['name']].update( kdict )
                 else:
                     print(f'FOR3b skipping {endpoint[keylist]} (not dict) or not a key list')
         print('*************')
-    return polling_config #a big dictionary of dictionaries.
+    return api_endpoint_key_config #a big dictionary of dictionaries.
 
 def load_polling_interval_minimum(api_config):
     try:
