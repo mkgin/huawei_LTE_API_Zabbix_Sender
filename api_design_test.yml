@@ -1,0 +1,54 @@
+# API endpoint config
+#
+# See api_design.yml for more details
+# this one is used for quick testing and debugging
+
+
+# This is an example of a YAML macro called "ten_minutes_end_0"
+# and used in the "user.history_login" enpoint in this example
+ten_minutes_ending_0: &ten_minutes_end_0
+  fixed: [0, 10, 20, 30, 40, 50]
+  changes: false
+  previous: false
+
+sending_strategy_default:
+  always: true
+  stale: 300
+
+key_prefix: 'huawei.lte'  # name for the start of the zabbix key
+endpoint:
+- name: 'device.signal'
+  polling_interval: 60  # seconds
+  key_list1:
+    keys:
+      - 'rsrq'
+    always: true
+  key_list2:
+    keys: ['pci', 'cell_id']
+    changes: false
+    previous: true
+    stale: 600
+  key_list3:
+    keys: ['ims']
+    changes: true
+    previous: false
+    stale: 3600
+- name: user.history_login
+  polling_interval: 600
+  key_list1:
+    keys: ['last_login_state', 'last_login_time', 'last_login_ipaddr']
+  <<: *ten_minutes_end_0
+- name: device.information
+  polling_interval: 3600
+  key_list1:
+    keys: ['DeviceName', 'SerialNumber']
+  key_list2:
+  # key or keys can be at this level but and useds this levels sending strategy
+  keys:
+    - 'WifiMacAddrWl1'
+    - 'spreadname_en'
+  key:
+    - 'spreadname_zh'
+  always: true
+# zabbix templates:
+# - default, all items as text

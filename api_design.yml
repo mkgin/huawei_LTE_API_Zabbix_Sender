@@ -1,0 +1,108 @@
+# API endpoint config design details
+# 
+ten_minutes_ending_0: &ten_minutes_end_0
+  fixed:
+    - minute: [0,10,20,30,40,50]
+  changes:
+    - latest: False
+    - previous: False
+
+endpoint_schema:
+  endpoint: # start of the endpoint dictionary
+  - name: "name of the end point"
+    #each endpoint is a http request that is polled at a defined interval
+    polling_interval: "time_in_seconds"
+
+    # sending_strategy:
+    # 
+    # It's possible to read all deta in an endpoint each time polled
+    # but might not be all interesting or important
+    # all data is available anyway
+    #sending strategy (here or in key list)
+    sending_strategy_default: #is used on the top level
+    # "one or more of the following"
+    # 'always' sends on each polling interval, takes precedence over others
+    # except in when in sending_strategy_default:
+      always: true
+    # 'changes' sends when the value is different from the previous poll
+      changes: true
+    # 'previous' sends result from previous poll if it has not been sent already
+    # implies changes 'true' (can help some graphs look better.)
+      previous: true
+    # 'stale' sends data in the next poll if x or more seconds have passed since the last
+    # time a value was sent. If stale < polling_interval
+    # 'stale' overides 'fixed'
+      stale: 300
+    # 'fixed' sends at certain minutes of the hour as close as possible.
+      fixed: [1,16,31,46]
+         # fixed times in minutes of the hour
+    # key list. name can be anything allowed except what was used above
+    # keys are results from the endpoint query
+    key_list:
+      keys: ['abc', 'def']
+      stale: 300 # value is sent again when 300 or more seconds have passed
+                 # since it was last sent
+    #could just have keys and/or key at top level
+    keys: ['mno']
+    # or
+    key: ['pqr','stu']
+    #uses this level's strategy (the endpoint strategy)
+
+    # parsed keys: (TODO)
+    # need to consider different methods to process keys(TODO)
+    # eg. PPusch:-2dBm PPucch:-15dBm PSrs:-40dBm PPrach:7dBm
+    key_list_parsed:
+      keys: ['ghi','jkl']
+      regex: '' # look at tokanizers too.
+
+    # parameter endpoints TODO...
+
+# at the moment this is quite specific to the Huawei-LTE-api and Zabbix
+# could have similar for queries with parameters and end up with something
+# a bit more generic that could be useful with other apis
+
+sending_strategy_default:
+  always: true
+  stale: 300
+
+key_prefix: 'huawei.lte'  # name for the start of the zabbix key
+endpoint:
+- name: 'device.signal'
+  polling_interval: 60 # seconds
+  key_list1:
+      keys: ['rsrq', 'rsrp', 'rssi', 'sinr', 'txpower']
+      always: true
+  key_list2:
+      keys: ['pci', 'cell_id', 'band', 'nei_cellid']
+      changes:
+      previous:
+      stale: 600
+  key_list3:
+      keys: ['ims', 'tac', 'mode', 'rrc_status', 'plmn', 'lteulfreq',
+               'ltedlfreq', 'enodeb_id', 'ulbandwidth', 'dlbandwidth']
+      changes:
+        - true
+      previous: true
+      stale: 3600
+
+- name: device.information
+  polling_interval: 3600
+  key_list1:
+    keys: ['DeviceName', 'SerialNumber', 'Imei', 'Imsi', 'Iccid', 'Msisdn',
+               'HardwareVersion', 'SoftwareVersion', 'WebUIVersion',
+               'MacAddress1', 'MacAddress2', 'WanIPAddress', 'wan_dns_address',
+               'WanIPv6Address', 'wan_ipv6_dns_address', 'ProductFamily',
+               'Classify', 'supportmode', 'workmode', 'submask', 'Mccmnc',
+               'iniversion', 'uptime', 'ImeiSvn', 'WifiMacAddrWl0']
+  keys:
+    - 'WifiMacAddrWl1'
+    - 'spreadname_en'
+    - 'spreadname_zh'
+  always: true
+- name: user.history_login
+  polling_interval: 600
+  key_list1:
+    keys: ['last_login_state', 'last_login_time', 'last_login_ipaddr']
+  <<: *ten_minutes_end_0               
+# consider how to auto generate zabbix templates,  default, all items as text
+# 
