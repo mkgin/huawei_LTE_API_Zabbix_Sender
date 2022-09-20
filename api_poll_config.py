@@ -93,10 +93,13 @@ def load_key_prefix_config(api_config):
     """returns key prefix"""
     return api_config['key_prefix']
 
-def load_api_poll_config(api_config):
+def load_api_endpoint_key_config(api_config):
     """
     Loads config and returns dictionary of endpoints, keys and their configuration
-    Also determines the minimum polling interval
+    
+    The return dict is as follows
+    'endpoint_name' : { 'keys_names : { key_specific_parameters } 
+    
     TODO: some errors if something important missing
     """
     polling_config={}
@@ -117,13 +120,10 @@ def load_api_poll_config(api_config):
                                                           current_sending_strategy,
                                                           sending_strategy_default)
         print( f' sending_strategy_endpoint: {sending_strategy_endpoint}')
-        # polling_config[endpoint['name']] = {}
-        polling_config[endpoint['name']] = { 'polling_interval' : endpoint['polling_interval']}
+        polling_config[endpoint['name']] = {}
         # get keys and apply strategies 
         for keylist in endpoint.keys():
-            
             print( f'FOR2 keylist: {keylist} in {endpoint.keys()}')
-            
             print( f' sending_strategy_endpoint: {sending_strategy_endpoint}')
             # if type is dict check if it is a keylist and iterate
             if type (endpoint[keylist]) is dict:
@@ -157,7 +157,7 @@ def load_polling_interval_minimum(api_config):
         polling_interval_minimum = api_config['polling_interval_minimum']
     except KeyError:
         polling_interval_minimum = 0
-    endpoints = api_config['endpoint']
+        endpoints = api_config['endpoint']
     for endpoint in endpoints:
         if polling_interval_minimum == 0:
             polling_interval_minimum = endpoint['polling_interval']
@@ -172,9 +172,11 @@ def main():
     api_config = yaml.safe_load(open('api_design_test.yml'))
     #api_config = yaml.safe_load(open('api_design.yml'))
     # get the config
-    poll_config = load_api_poll_config(api_config)
+    endpoint_key_config = load_api_endpoint_key_config(api_config)
     # pretty print it
-    pprint.pp(poll_config)
+    print('*****')
+    pprint.pp(endpoint_key_config)
+    print('*****')
     print(f'key_prefix: {load_key_prefix_config(api_config)}')
     print(f'polling_interval_minimum: {load_polling_interval_minimum(api_config)}')
 
