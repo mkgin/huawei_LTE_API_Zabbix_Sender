@@ -5,21 +5,20 @@ Loads configuration to handle API polling
 
 - Creates a dictionaries for API endpoints containing items(keys) to store from an API
 - Loads polling interval per endpoint
-- Loads sending strategies which can be specified at different levels. 
+- Loads sending strategies which can be specified at different levels.
 - More information in the sample YAML configuration file
 
 TODO: switch print statments to debug logs
-TODO: handle endpoint polling interval
-TODO: make it a module that returns the dictionary to main API poller
 """
 
 import yaml
-import pprint
+import pprint # dont really need this.
 import logging
 
 # store the sending strategy for endpoints here...
 # queried as sending_strategy[endpoint][key][strategy]
-sending_strategy={}
+# or sending_strategy[endpoint]['polling_interval']
+# sending_strategy={}
 
 def get_sending_strategy( sending_strategy, upper_strategy , sending_default ):
     """Reads sending strategy from a top level of the configuration data in sending_strategy.
@@ -74,14 +73,31 @@ def get_sending_strategy( sending_strategy, upper_strategy , sending_default ):
     
     return sending_strategy_return
 
-def sending_strategy_check( endpoint, key, strategy):
-    """Check and returns a strategy's value for a key, otherwise, returns False"""
+def what_should_be_sent( strategy, values ):
+    """TODO:
+        - Check a sending strategy's for a given key
+        - Return what should be sent to monitoring as list of tuples
+        - (endpoint, key, value, timestamp)
+    """
+    #
+    # if strategy always, return last polled
+    # if changes and changed send last polled
+        # if previous send previous poll
+    # if interval check if we are in a new interval
+    # test other strate
     if strategy in sending_strategy[endpoint][key]:
         return sending_strategy[endpoint][key][strategy]
-    return False
+    return
 
-def load_api_config_to_sending_strategy(api_config):
-    
+def load_key_prefix_config(api_config):
+    """returns key prefix"""
+    return api_config['key_prefix']
+
+def load_api_poll_config(api_config):
+    """Loads config and returns dictionary of endpoints, keys and their configuration
+       TODO: some errors if something important missing
+    """
+    polling_config={}
 
     #default sending strategy in top level
     sending_strategy_default= api_config['sending_strategy_default']
@@ -99,9 +115,11 @@ def load_api_config_to_sending_strategy(api_config):
                                                           current_sending_strategy,
                                                           sending_strategy_default)
         print( f' sending_strategy_endpoint: {sending_strategy_endpoint}')
-        sending_strategy[endpoint['name']] = {}
-        # endpoint
+        # polling_config[endpoint['name']] = {}
+        polling_config[endpoint['name']] = { 'polling_interval' : endpoint['polling_interval']}
+        # get keys and apply strategies 
         for keylist in endpoint.keys():
+            
             print( f'FOR2 keylist: {keylist} in {endpoint.keys()}')
             
             print( f' sending_strategy_endpoint: {sending_strategy_endpoint}')
@@ -112,34 +130,35 @@ def load_api_config_to_sending_strategy(api_config):
                                                              sending_strategy_endpoint,
                                                              sending_strategy_default)
                     for current_key in endpoint[keylist]['keys']:
-                        print( f'FOR3a {current_key}' )
-                        print( f'keys IS in current_key: {current_key}')
+                        print( f'FOR3a current_key {current_key}' )
                         for k in endpoint[keylist]['keys']:
                              print( f'KEY: {k}')
                              kdict= { k : sending_strategy_keylist}
-                             sending_strategy[endpoint['name']].update( kdict )
+                             polling_config[endpoint['name']].update( kdict )
                     else:
                         print(f'FOR3a skipping {current_key}')
             # if type is not dict check if it is a keylist and iterate            
             else:
                 if 'key' == keylist or 'keys' == keylist:
-                #if keylist is "keys":
-                #if 'keys' is keylist:
                     print(f'FOR3b keylist {keylist}  endpoint[keylist] {endpoint[keylist]}')
-                    #print(f'FOR3b** keys in keylist {keylist} type {type(keylist)}')
-                    for k in endpoint[keylist]: #['keys']:
+                    for k in endpoint[keylist]:
                         print( f'KEY(keys): {k}')
                         kdict = { k : sending_strategy_endpoint}
-                        sending_strategy[endpoint['name']].update( kdict )
+                        polling_config[endpoint['name']].update( kdict )
                 else:
                     print(f'FOR3b skipping {endpoint[keylist]} (not dict) or not a key list')
         print('*************')
-    #return a big dictionary of dictionaries.
+    return polling_config #a big dictionary of dictionaries.
 
 def main():
-    
+    """Example use"""
+    # Load api config from file
     api_config = yaml.safe_load(open('api_design_test.yml'))
-    load_api_config_to_sending_strategy(api_config)
-    pprint.pp(sending_strategy)
+    #api_config = yaml.safe_load(open('api_design.yml'))
+    # get the config
+    poll_config = load_api_poll_config(api_config)
+    # pretty print it
+    pprint.pp(poll_config)
+    print(load_key_prefix_config(api_config))
 
 main()
