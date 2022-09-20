@@ -94,13 +94,11 @@ def load_key_prefix_config(api_config):
     return api_config['key_prefix']
 
 def load_api_poll_config(api_config):
-    """
-    Loads config and returns dictionary of endpoints, keys and their configuration
-    Also determines the minimum polling interval
-    TODO: some errors if something important missing
+    """Loads config and returns dictionary of endpoints, keys and their configuration
+       TODO: some errors if something important missing
     """
     polling_config={}
-    
+
     #default sending strategy in top level
     sending_strategy_default= api_config['sending_strategy_default']
     pprint.pp(sending_strategy_default)
@@ -152,20 +150,6 @@ def load_api_poll_config(api_config):
         print('*************')
     return polling_config #a big dictionary of dictionaries.
 
-def load_polling_interval_minimum(api_config):
-    try:
-        polling_interval_minimum = api_config['polling_interval_minimum']
-    except KeyError:
-        polling_interval_minimum = 0
-    endpoints = api_config['endpoint']
-    for endpoint in endpoints:
-        if polling_interval_minimum == 0:
-            polling_interval_minimum = endpoint['polling_interval']
-        elif polling_interval_minimum  > endpoint['polling_interval']:
-            polling_interval_minimum = endpoint['polling_interval']
-    
-    return polling_interval_minimum
-    
 def main():
     """Example use"""
     # Load api config from file
@@ -175,7 +159,6 @@ def main():
     poll_config = load_api_poll_config(api_config)
     # pretty print it
     pprint.pp(poll_config)
-    print(f'key_prefix: {load_key_prefix_config(api_config)}')
-    print(f'polling_interval_minimum: {load_polling_interval_minimum(api_config)}')
+    print(load_key_prefix_config(api_config))
 
 main()

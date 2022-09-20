@@ -12,6 +12,9 @@ zabbix_sender_settings: 'use_config=True'
 # needs to be same as 'Host name' configured in Zabbix front end
 monitored_hostname: 'mymodem.local'
 
+# smallest allowed polling interval (in seconds).
+# It will override the smaller intervals in api_config.yaml
+minimum_polling_interval: 60
 log_level: 'WARNING'
 
 # testing variables
