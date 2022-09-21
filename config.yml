@@ -12,6 +12,8 @@ zabbix_sender_settings: 'use_config=True'
 # needs to be same as 'Host name' configured in Zabbix front end
 monitored_hostname: 'mymodem.local'
 
+api_poll_config: 'api_huawei_lte_4g_config.yml'
+
 log_level: 'WARNING'
 
 # testing variables
