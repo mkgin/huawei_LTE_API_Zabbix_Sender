@@ -20,6 +20,23 @@ import logging
 # or sending_strategy[endpoint]['polling_interval']
 # sending_strategy={}
 
+def check_fixed_sending_strategy_list( fixed_list ):
+    """returns a valid sorted list with unique values.
+    
+    Values should be int and in range 0-59
+    """
+    return_list = [] # cleaned list
+    for i in set(fixed_list): # iterate unique values
+        logging.debug(f'**check fixed: value {i} {type(i)}')
+        if type(i) is int: # check type
+            if i >= 0 and i < 60: # check range
+               return_list.append(i) 
+            else:
+                logging.warning(f'check_fixed.. value {i} in fixed out of range, ignoring it.')
+        else:
+            logging.warning(f'check_fixed.. value {i} is not of type int, ignoring it.')
+    return sorted(return_list)
+
 def get_sending_strategy( sending_strategy, upper_strategy , sending_default ):
     """Reads sending strategy from a top level of the configuration data in sending_strategy.
 
@@ -39,13 +56,16 @@ def get_sending_strategy( sending_strategy, upper_strategy , sending_default ):
         sending_strategy_return['stale'] = sending_strategy['stale']
     else:
         if 'fixed' in sending_strategy:
-            sending_strategy_return['fixed'] = sending_strategy['fixed']
+            # check all are int and 0-59
+            
+            sending_strategy_return['fixed'] = \
+                check_fixed_sending_strategy_list(sending_strategy['fixed'])
     if 'previous' in sending_strategy:
         print(f'sending_strategy_previous {sending_strategy}')
-        if sending_strategy['previous'] is True:    ###???
+        if sending_strategy['previous'] is True:
+            #TODO: test and check that just previous will set changes. too
             #sending_strategy_return.update( {'changes': True, 'previous': True} )
             sending_strategy_return.update( {'previous': True} )
-            
         else:
             sending_strategy_return['previous'] = False
     if 'changes' in sending_strategy:
@@ -153,6 +173,8 @@ def load_api_endpoint_key_config(api_config):
     return api_endpoint_key_config #a big dictionary of dictionaries.
 
 def load_polling_interval_minimum(api_config):
+    """returns lowest polling interval from the config. checks top level
+       polling_interval_minimum and polling_interval in the endpoints."""
     try:
         polling_interval_minimum = api_config['polling_interval_minimum']
     except KeyError:
@@ -179,5 +201,4 @@ def main():
     print('*****')
     print(f'key_prefix: {load_key_prefix_config(api_config)}')
     print(f'polling_interval_minimum: {load_polling_interval_minimum(api_config)}')
-
 main()
