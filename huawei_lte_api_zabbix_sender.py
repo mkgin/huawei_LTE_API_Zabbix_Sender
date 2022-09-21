@@ -27,7 +27,8 @@ import sys  # to report errors
 import logging
 import os
 import socket #for errors from ZabbixSender
-from huawei_lte_api.Client import Client #https://github.com/Salamek/huawei-lte-api
+#https://github.com/Salamek/huawei-lte-api
+from huawei_lte_api.Client import Client
 from huawei_lte_api.Connection import Connection
 from huawei_lte_api.exceptions import \
     ResponseErrorLoginRequiredException, \
@@ -38,13 +39,15 @@ from huawei_lte_api.exceptions import \
     LoginErrorUsernamePasswordOverrunException, \
     ResponseErrorException, \
     RequestFormatException
-from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse
 # https://py-zabbix.readthedocs.io/en/latest/sender.html
 # ZabbixResponse might not be needed
+from pyzabbix import ZabbixMetric, ZabbixSender, ZabbixResponse
 import yaml
+# Own libs
 from api_poll_config import load_api_endpoint_key_config, \
      load_key_prefix_config, \
      load_polling_interval_minimum
+from api_poll_tools import times_straddle_minute
 
 log_level =''
 zabbix_sender_setting = ''
@@ -66,12 +69,14 @@ zabbix_send_failed_time = 0
 
 # TODO: have these as persistant variables only in get_interesting_values 
 # storage for get_interesting_values()
-lastchanged = {} # time last sent
+lastchanged = {} # time last sent 
 lastvalue = {}   # last value
 lastpolled = {}  # time of last poll
 
 # TODO: check where epoch_time is really needed...
 epoch_time = 0
+
+
 
 def load_config():
     """Loads the YAML config first from config.yml, then own_config.yml"""
@@ -193,7 +198,7 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
         lastpolled[endp_dot_key] = poll_time
         lastvalue[endp_dot_key] = v
     #elif k in interesting: #changes_interesting_10min or k in changes_interesting_1hour:
-    elif 'stale' in keyconf: # or 'fixed' in keyconf #
+    elif 'stale' in keyconf: 
         # check if we don't need to send anything, and return, then test.
         if ( (lastvalue[endp_dot_key] == v) and
              (poll_time - lastchanged[endp_dot_key] < keyconf['stale'])
@@ -227,8 +232,20 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
             lastpolled[endp_dot_key] = poll_time # update for next time
             lastvalue[endp_dot_key] = v
         #else:
-    elif 'fixed' in keyconf: #
-        pass # TODO: not handling fixed yet.
+    elif 'fixed' in keyconf:
+        # the fixed list should already be sorted when loading
+        for minute in keyconf['fixed']:
+            # check if minute between times
+            if times_straddle_minute(lastchanged[endp_dot_key],poll_time,minute):
+                logging.warning(f'send fixed minute: {minute}')
+                ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
+                    f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
+                lastchanged[endp_dot_key] = poll_time
+                break
+            else:
+                logging.warning(f'not this minute: {minute}')
+        #finish up (update info)
+        lastpolled[endp_dot_key] = poll_time
     else:
         #logging.debug(f'{k} is not interesting: {k} : {v}')
         logging.warn(f'{k} is not interesting: {k} : {v}')
@@ -284,7 +301,6 @@ def main():
     minimum_polling_interval = load_polling_interval_minimum(api_config)
     endpoint_key_config = load_api_endpoint_key_config(api_config)
     endpoints = api_config['endpoint']
-    
     epoch_time_start = int(time.time())
     zabbix_send_failed_time = 0
     #counters
