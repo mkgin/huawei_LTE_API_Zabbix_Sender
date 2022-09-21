@@ -1,11 +1,7 @@
 # API endpoint config design details
 # 
 ten_minutes_ending_0: &ten_minutes_end_0
-  fixed:
-    - minute: [0,10,20,30,40,50]
-  changes:
-    - latest: False
-    - previous: False
+  fixed: [0,10,20,30,40,50] # minute from 0-59. The array will be sorted on loadin
 
 endpoint_schema:
   endpoint: # start of the endpoint dictionary
@@ -36,6 +32,7 @@ endpoint_schema:
     # 'fixed' sends at certain minutes of the hour as close as possible.
       fixed: [1,16,31,46]
          # fixed times in minutes of the hour
+         # minute from 0-59. The array will be sorted on loading
     # key list. name can be anything allowed except what was used above
     # keys are results from the endpoint query
     key_list:
@@ -78,12 +75,15 @@ endpoint:
       previous:
       stale: 600
   key_list3:
-      keys: ['ims', 'tac', 'mode', 'rrc_status', 'plmn', 'lteulfreq',
-               'ltedlfreq', 'enodeb_id', 'ulbandwidth', 'dlbandwidth']
+      keys: [ 'rrc_status', 'plmn', 'lteulfreq',
+              'ltedlfreq', 'enodeb_id', 'ulbandwidth', 'dlbandwidth']
       changes:
         - true
       previous: true
       stale: 3600
+  key_list4:
+    keys: ['ims', 'tac', 'mode']
+    fixed: [32, 3, 5, 4, 59, 500, -1, 0.5, "crap", 3] #some invalid values for testing.
 
 - name: device.information
   polling_interval: 3600

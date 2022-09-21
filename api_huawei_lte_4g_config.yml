@@ -1,3 +1,6 @@
+# API config meant for use with Huawei LTG 4G modem
+# Meant to be used with the zabbix template for this modem.
+
 # API endpoint config
 #
 # See api_design.yml for more details
@@ -15,26 +18,21 @@ sending_strategy_default:
   always: true
   stale: 300
 
-polling_interval_minimum: 25
+#polling_interval_minimum: 30
 
 key_prefix: 'huawei.lte'  # name for the start of the zabbix key
 endpoint:
 - name: 'device.signal'
   polling_interval: 60  # seconds
   key_list1:
-    keys:
-      - 'rsrq'
+    keys: ['rsrq', 'rsrp', 'rssi', 'sinr', 'txpower' ]
     always: true
   key_list2:
-    keys: ['pci', 'cell_id','rsrp', 'rssi', 'sinr', 'txpower','tac', 'mode', 'rrc_status', 'plmn']
+    keys: ['ims','tac','mode', "rrc_status",'plmn','lteulfreq', 'ltedlfreq',
+            'enodeb_id', 'ulbandwidth','dlbandwidth', 'pci' ,'cell_id','band','nei_cellid']
     changes: true
     previous: true
-    stale: 400
-  key_list3:
-    keys: ['ims']
-    changes: true
-    previous: false
-    stale: 3600
+    stale: 600
 - name: user.history_login
   polling_interval: 600
   key_list1:
@@ -42,15 +40,10 @@ endpoint:
   <<: *ten_minutes_end_0
 - name: device.information
   polling_interval: 3600
+  always: true
   key_list1:
-    keys: ['DeviceName', 'SerialNumber']
+    keys: ['DeviceName', 'SerialNumber', 'spreadname_en']
   key_list2:
   # key or keys can be at this level but and useds this levels sending strategy
   keys:
     - 'WifiMacAddrWl1'
-    - 'spreadname_en'
-  key:
-    - 'spreadname_zh'
-  always: true
-# zabbix templates:
-# - default, all items as text
