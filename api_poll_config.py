@@ -201,4 +201,4 @@ def main():
     print('*****')
     print(f'key_prefix: {load_key_prefix_config(api_config)}')
     print(f'polling_interval_minimum: {load_polling_interval_minimum(api_config)}')
-main()
+#main()

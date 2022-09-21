@@ -16,6 +16,7 @@ api_poll_config: 'api_huawei_lte_4g_config.yml'
 
 log_level: 'WARNING'
 
-# testing variables
-do_zabbix_send: True
-do_it_once: False
+# testing / debugging variables
+print_zabbix_send: false
+do_zabbix_send: true
+do_it_once: false

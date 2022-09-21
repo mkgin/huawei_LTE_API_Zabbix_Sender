@@ -128,7 +128,7 @@ def get_api_endpoint( endpoint , modem_url):
             #stuff = client.device.signal()
             stuff = eval(client_endpoint)() #not sure if this is evil or insecure
     except ( ResponseErrorException, ResponseErrorLoginCsrfException,\
-            ResponseErrorLoginRequiredException ) as error_msg:
+            ResponseErrorLoginRequiredException,ResponseErrorWrongSessionToken  ) as error_msg:
         logging.warning('Reconnecting due to error: {0}'.format(error_msg))
         api_reconnect_count += 1
         logging.warning(f'Modem API reconnect count: {api_reconnect_count}' )
@@ -137,7 +137,7 @@ def get_api_endpoint( endpoint , modem_url):
             #stuff = client.device.signal()
             stuff = eval(client_endpoint)() #not sure if this is evil or insecure
     except AttributeError:
-        logging.error(f'Configuration error: endpoint: {endpoint} is not available')
+        logging.error(f'Configuration error: endpoint: {endpoint} is not available or does not exist')
         raise
     except:
         logging.error('Unexpected error: {0}' .sys.exc_info()[0])
@@ -278,6 +278,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     
     api_config = yaml.safe_load(open(config['api_poll_config']))
+    logging.info(f'api_poll_config loaded from: ' + config['api_poll_config'])
     key_prefix = load_key_prefix_config(api_config)
     minimum_polling_interval = load_polling_interval_minimum(api_config)
     endpoint_key_config = load_api_endpoint_key_config(api_config)
@@ -294,15 +295,18 @@ def main():
             epoch_time = int(time.time())
             # check endpoint_polled_last['endpoint'] and set if not
             try:
-                endpoint_polled_last['endpoint']
+                endpoint_polled_last[endpoint['name']]
             except KeyError:
-                endpoint_polled_last['endpoint'] = 0
+                endpoint_polled_last[endpoint['name']] = 0
             # check if it is time to poll this endpoint
-            if ( endpoint_polled_last['endpoint'] == 0 or
-                 epoch_time - endpoint_polled_last['endpoint'] <= endpoint['polling_interval'] 
+            logging.info('endpoint_name: ' + endpoint['name'] + ' poll_int: ' +
+                         repr( endpoint['polling_interval']) + ' last: ' +
+                         repr(endpoint_polled_last[endpoint['name']]))
+            if ( endpoint_polled_last[endpoint['name']] == 0 or
+                 epoch_time - endpoint_polled_last[endpoint['name']] >= endpoint['polling_interval'] 
                ):
                 endpoint_data = get_api_endpoint(endpoint['name'], config['modem_url'])
-                endpoint_polled_last['endpoint'] = epoch_time
+                endpoint_polled_last[endpoint['name']] = epoch_time
                 # collect interesting(changed, stale, always interesting) items for an endpoint
                 for k,v in endpoint_data.items():
                     iv = get_interesting_values( prefix=key_prefix, endpoint_name=endpoint['name'],
@@ -315,13 +319,17 @@ def main():
                         # something changed and previous is sent too
                         endpoint_name = endpoint['name']
                         logging.info(f'more than one item in iv {endpoint_name}.{k}')
+            else:
+                logging.info(f'not polling ' + endpoint['name'])
         if config['do_zabbix_send']: # send (queued) data to zabbix server
             send_status = send_zabbix_packet(zapacket , config['zabbix_sender_setting'])
+            if config['print_zabbix_send']:
+                pprint.pp(zapacket )
             if send_status:
                 zapacket = []
         else:
             print('***** TEST: not sending *****')
-            pprint.pp(zapacket )
+            #pprint.pp(zapacket )
             zapacket = []
         print(f'*** Time: {epoch_time} poll count: {count}',
               f' uptime: {epoch_time - epoch_time_start} ***')

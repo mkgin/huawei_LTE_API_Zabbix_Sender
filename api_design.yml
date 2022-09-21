@@ -2,9 +2,6 @@
 # 
 ten_minutes_ending_0: &ten_minutes_end_0
   fixed: [0,10,20,30,40,50] # minute from 0-59. The array will be sorted on loadin
-  changes:
-    - latest: False
-    - previous: False
 
 endpoint_schema:
   endpoint: # start of the endpoint dictionary
