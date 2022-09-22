@@ -66,9 +66,9 @@ zabbix_server_failed = 0    # Zabbix server did not accept (wrong key, wrong typ
 zabbix_server_total = 0     #
 zabbix_send_failed_time = 0
 
-# TODO: have these as persistant variables only in get_interesting_values 
+# TODO: have these as persistant variables only in get_interesting_values
 # storage for get_interesting_values()
-lastchanged = {} # time last sent 
+lastchanged = {} # time last sent
 lastvalue = {}   # last value
 lastpolled = {}  # time of last poll
 
@@ -89,11 +89,11 @@ def load_config():
     if os.path.isfile(configfile_default):
         config = yaml.safe_load(open(configfile_default))
     else:
-        logging.warning("Missing: ",configfile_default )
+        logging.warning(f'Missing:  {configfile_default}' )
     if os.path.isfile(configfile_own):
         config.update(yaml.safe_load(open(configfile_own)))
     else:
-        logging.warning("Missing",configfile_own )
+        logging.warning('Missing  {configfile_own}' )
     global zabbix_send_failed_time_max, zabbix_send_failed_items_max
     zabbix_send_failed_time_max  = 900 # TODO add to default config
     zabbix_send_failed_items_max = 500 # TODO add to default config
@@ -110,7 +110,7 @@ def get_api_endpoint( endpoint , modem_url):
     # callable python object... and (return dictionary)
     global api_reconnect_count
     client_endpoint= f'client.{endpoint}'
-    logging.debug(client_endpoint )
+    logging.debug(f'client_endpoint: {client_endpoint}' )
     try:
         with Connection(modem_url) as connection:
             client = Client(connection)
@@ -137,7 +137,8 @@ def get_api_endpoint( endpoint , modem_url):
             #stuff = client.device.signal()
             stuff = eval(client_endpoint)() #not sure if this is evil or insecure
     except AttributeError:
-        logging.error(f'Configuration error: endpoint: {endpoint} is not available or does not exist')
+        logging.error(f'Configuration error: endpoint: '
+                      '{endpoint} is not available or does not exist')
         raise
     except:
         logging.error('Unexpected error: {0}' .sys.exc_info()[0])
@@ -145,7 +146,8 @@ def get_api_endpoint( endpoint , modem_url):
     return stuff
 
 # TODO: think about moving this to api_poll_tools
-def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt_key_conf , monitored_hostname ):
+def get_interesting_values( prefix, endpoint_name , key, value, poll_time,
+                            endpt_key_conf , monitored_hostname ):
     """Returns list of interesting values as a zabbixmetric
 
     Interesting depends on how they are defined in endpt_key_conf
@@ -156,7 +158,8 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
     Was considering using something other than zabbixmetric, but it is simple
     enough, and easy to read, convert if needed later.
     """
-    logging.debug( f'get_interesting_values( {prefix}, {endpoint_name} , {key}, {value} {poll_time} )' )
+    logging.debug( f'get_interesting_values( {prefix}, {endpoint_name}'
+                   ' , {key}, {value} {poll_time} )' )
     global changed_count, stale_count, not_changed_count, not_stale_count
     ivlist = [] #interesting value list
     k=key
@@ -174,7 +177,7 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
                 f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
     # all not always keys that are in the dict are handled here
     # last value  and timestamps for the last change, last poll are stored
-    elif ( endp_dot_key not in lastchanged): #or lastvalue...
+    elif endp_dot_key not in lastchanged: #or lastvalue...
         logging.debug(f'keyconf for {k} : {keyconf}')
         logging.debug(f"{k} not in lastchanged {k not in lastchanged}")
         ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
@@ -182,7 +185,7 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
         lastchanged[endp_dot_key] = poll_time
         lastpolled[endp_dot_key] = poll_time
         lastvalue[endp_dot_key] = v
-    elif 'stale' in keyconf: 
+    elif 'stale' in keyconf:
         # check if we don't need to send anything, and return, then test.
         if ( (lastvalue[endp_dot_key] == v) and
              (poll_time - lastchanged[endp_dot_key] < keyconf['stale'])
@@ -190,7 +193,8 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
             lastpolled[endp_dot_key] = poll_time # update for next time
             not_changed_count += 1
             not_stale_count += 1
-            logging.debug(f'{k} not changed/not stale or too old {poll_time - lastchanged[endp_dot_key]} ')
+            logging.debug(f'{k} not changed/not stale or too old '
+                          '{poll_time - lastchanged[endp_dot_key]} ')
             return ivlist #return empty ivlist
         else:
             # if value changed. send previous data from previous
@@ -204,9 +208,11 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
                         f'{prefix}.{endpoint_name}.{k}' ,lastvalue[endp_dot_key],
                                                       lastpolled[endp_dot_key] ) ]
                     logging.debug(f'{k} changed before last check and previous set')
-                    logging.debug(f'sending previous data from {poll_time - lastchanged[endp_dot_key]} sec')
+                    logging.debug(f'sending previous data from '
+                                  '{poll_time - lastchanged[endp_dot_key]} sec')
             else:
-                logging.debug(f'{k} data is stale after {poll_time - lastchanged[endp_dot_key]} sec')
+                logging.debug(f'{k} data is stale after '
+                              '{poll_time - lastchanged[endp_dot_key]} sec')
                 stale_count += 1
                 not_changed_count += 1
             ivlist = ivlist + [ ZabbixMetric( monitored_hostname ,
@@ -217,7 +223,7 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
     elif 'fixed' in keyconf:
         # the fixed list should already be sorted when loading
         for minute in keyconf['fixed']:
-            # check if minute between times
+            # check if minute between current and previous timestamps
             if times_straddle_minute(lastchanged[endp_dot_key],poll_time,minute):
                 logging.debug(f'send fixed minute: {minute}')
                 ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
@@ -229,7 +235,8 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time, endpt
         #finish up (update info)
         lastpolled[endp_dot_key] = poll_time
     else:
-        logging.warning(f'{endpoint_name}.{k} is not interesting: {k} : {v}\nAND SHOUND NOT EVEN BE AT THIS LINE')
+        logging.warning(f'{endpoint_name}.{k} is not interesting: {k} : {v}\n'
+                        'AND SHOULD NOT EVEN BE AT THIS LINE')
         # should not make it here
     return ivlist
 
@@ -276,7 +283,7 @@ def main():
     modem_url=config['modem_url']
     # TODO: set logging with config['log_level']
     logging.basicConfig(level=logging.INFO)
-    
+
     api_config = yaml.safe_load(open(config['api_poll_config']))
     logging.info(f'api_poll_config loaded from: ' + config['api_poll_config'])
     key_prefix = load_key_prefix_config(api_config)
@@ -289,7 +296,7 @@ def main():
     count = 1 # count for running a certain number of times, or just keeping track
     zapacket = [] # packet to be sent
     endpoint_polled_last={}
-    
+
     while True:
         for endpoint in endpoints: # loop through end API endpoints
             epoch_time = int(time.time())
@@ -303,7 +310,7 @@ def main():
                          repr( endpoint['polling_interval']) + ' last: ' +
                          repr(endpoint_polled_last[endpoint['name']]))
             if ( endpoint_polled_last[endpoint['name']] == 0 or
-                 epoch_time - endpoint_polled_last[endpoint['name']] >= endpoint['polling_interval'] 
+                 epoch_time - endpoint_polled_last[endpoint['name']] >= endpoint['polling_interval']
                ):
                 endpoint_data = get_api_endpoint(endpoint['name'], config['modem_url'])
                 endpoint_polled_last[endpoint['name']] = epoch_time
@@ -320,11 +327,11 @@ def main():
                         endpoint_name = endpoint['name']
                         logging.info(f'more than one item in iv {endpoint_name}.{k}')
             else:
-                logging.info(f'not polling ' + endpoint['name'])
+                logging.info('not polling ' + endpoint['name'])
+        if config['print_zabbix_send']:
+            pprint.pp( zapacket )
         if config['do_zabbix_send']: # send (queued) data to zabbix server
             send_status = send_zabbix_packet(zapacket , config['zabbix_sender_setting'])
-            if config['print_zabbix_send']:
-                pprint.pp(zapacket )
             if send_status:
                 zapacket = []
         else:

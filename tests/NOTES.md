@@ -1,18 +1,20 @@
 # Testing notes
 
 ## Modem tests
-
-* ResponseErrorException, ResponseErrorLoginCsrfException, ResponseErrorLoginRequiredException
-   * Login session has timed out ( seems to happen after 2-3 minutes or a few logins
-    * "100003: No rights (needs login)"
-* LoginErrorUsernamePasswordOverrunException
-    * Login blocked by modem ( 3 password failures in one minute from same IP#? as this poller runs from) need to wait 60 sec
-
 * try wrong hostname
 * try turning modem off
 * try nc ...
 * web server (login will fail I guess...)
 * web server that accepts any login?
+
+### Modem API connection errors
+* ResponseErrorException, ResponseErrorLoginCsrfException, ResponseErrorLoginRequiredException
+   * Login session has timed out ( seems to happen after 2-3 minutes or a few logins
+    * "100003: No rights (needs login)"
+* LoginErrorUsernamePasswordOverrunException
+    * Login blocked by modem ( 3 password failures in one minute from same IP#? as this poller runs from) need to wait 60 sec
+* ResponseErrorWrongSessionToken: 125003: Wrong Session Token
+    * Not sure, token may have expired after running for about 9.5 days (was testing with another program at the same time)
 
 * New error? 
     * RemoteDisconnected
@@ -46,3 +48,10 @@ http.client.RemoteDisconnected: Remote end closed connection without response
   * 'timed out'
 
 * pause the Zabbix server VM.
+
+## Test the api configuration loader
+
+* tests that it does what is supposed to
+* breaking tests
+  * YAML that was not formatted as expected might have caused and infinite loop... 
+    or something that was long... get_sending_strategy calls itself, maybe should set some limit
