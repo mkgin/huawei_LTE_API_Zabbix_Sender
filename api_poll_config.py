@@ -172,7 +172,7 @@ def main():
     """Example use"""
     logging.basicConfig(level=logging.INFO)
     # Load api config from file
-    api_config = yaml.safe_load(open('api_design_test.yml'))
+    api_config = yaml.safe_load(open('tests/api_design_test.yml'))
     #api_config = yaml.safe_load(open('api_design.yml'))
     # get the config
     endpoint_key_config = load_api_endpoint_key_config(api_config)

@@ -3,7 +3,7 @@
 * monitors certain parameters from a Huawei modem using the [huawei-lte-api](https://github.com/Salamek/huawei-lte-api)
 * sends values to a [Zabbix](https://www.zabbix.com/) server 
 
-![Signal_Screenshot](Signal_Screenshot.png)
+![Signal_Screenshot](images/Signal_Screenshot.png)
 
 * values can be configured to be reported (sent) as follows:
     * each time polled
@@ -15,8 +15,8 @@
 	* https://github.com/adubkov/py-zabbix
         * https://py-zabbix.readthedocs.io/en/latest/sender.html
 
-![SINR_Graph](SINR_Graph.png)
-![UL/DL,RRC](ul_dl_rrc_Graph.png)
+![SINR_Graph](images/SINR_Graph.png)
+![UL/DL,RRC](images/ul_dl_rrc_Graph.png)
 
 ## Current status
 
