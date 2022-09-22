@@ -112,14 +112,6 @@ def load_key_prefix_config(api_config):
     """returns key prefix"""
     return api_config['key_prefix']
 
-<<<<<<< HEAD
-def load_api_poll_config(api_config):
-    """Loads config and returns dictionary of endpoints, keys and their configuration
-       TODO: some errors if something important missing
-    """
-    polling_config={}
-
-=======
 def load_api_endpoint_key_config(api_config):
     """
     Loads config and returns dictionary of endpoints, keys and their configuration
@@ -130,8 +122,6 @@ def load_api_endpoint_key_config(api_config):
     TODO: some errors if something important missing
     """
     api_endpoint_key_config={}
-    
->>>>>>> modifications_for_api_poll_config_module
     #default sending strategy in top level
     sending_strategy_default= api_config['sending_strategy_default']
 
@@ -178,8 +168,6 @@ def load_api_endpoint_key_config(api_config):
         logging.debug('*************')
     return api_endpoint_key_config #a big dictionary of dictionaries.
 
-<<<<<<< HEAD
-=======
 def load_polling_interval_minimum(api_config):
     """returns lowest polling interval from the config. checks top level
        polling_interval_minimum and polling_interval in the endpoints."""
@@ -196,7 +184,7 @@ def load_polling_interval_minimum(api_config):
     
     return polling_interval_minimum
     
->>>>>>> modifications_for_api_poll_config_module
+
 def main():
     """Example use"""
     logging.basicConfig(level=logging.INFO)
@@ -206,12 +194,6 @@ def main():
     # get the config
     endpoint_key_config = load_api_endpoint_key_config(api_config)
     # pretty print it
-<<<<<<< HEAD
-    pprint.pp(poll_config)
-    print(load_key_prefix_config(api_config))
-
-main()
-=======
     print('***** api_config[\'endpoint\']')
     pprint.pp(api_config['endpoint'])
     print('***** endpoint_key_config (dict)')
@@ -220,4 +202,4 @@ main()
     print(f'key_prefix: {load_key_prefix_config(api_config)}')
     print(f'polling_interval_minimum: {load_polling_interval_minimum(api_config)}')
 #main()
->>>>>>> modifications_for_api_poll_config_module
+
