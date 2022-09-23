@@ -47,7 +47,7 @@ import yaml
 from api_poll_config import load_api_endpoint_key_config, \
      load_key_prefix_config, \
      load_polling_interval_minimum
-from api_poll_tools import times_straddle_minute
+from api_poll_tools import test_times_straddle_minute
 
 log_level =''
 #zabbix_sender_setting = ''
@@ -222,16 +222,20 @@ def get_interesting_values( prefix, endpoint_name , key, value, poll_time,
             lastvalue[endp_dot_key] = v
     elif 'fixed' in keyconf:
         # the fixed list should already be sorted when loading
-        for minute in keyconf['fixed']:
-            # check if minute between current and previous timestamps
-            if times_straddle_minute(lastchanged[endp_dot_key],poll_time,minute):
-                logging.debug(f'send fixed minute: {minute}')
+        if test_times_straddle_minute(lastchanged[endp_dot_key],poll_time, keyconf['fixed']):
+                logging.debug(f'fixed minutes matched adding {endpoint_name}.{k} to iv[]')
                 ivlist = ivlist + [ ZabbixMetric( monitored_hostname,
                     f'{prefix}.{endpoint_name}.{k}' , v, poll_time ) ]
                 lastchanged[endp_dot_key] = poll_time
-                break
-            else:
-                logging.debug(f'not this minute: {minute}')
+##        for minute in keyconf['fixed']:
+##            # check if minute between current and previous timestamps
+##            logging.debug(f'send fixed minute: {minute}')
+##            if times_straddle_minute(lastchanged[endp_dot_key],poll_time,minute):
+##                break
+##            else:
+##                logging.debug(f'not this minute: {minute}')
+##                return True
+##            return False
         #finish up (update info)
         lastpolled[endp_dot_key] = poll_time
     else:
