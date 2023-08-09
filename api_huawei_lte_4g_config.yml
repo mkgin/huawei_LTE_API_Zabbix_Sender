@@ -39,7 +39,7 @@ endpoint:
     keys: ['last_login_state', 'last_login_time', 'last_login_ipaddr']
   <<: *ten_minutes_end_0
 - name: device.information
-  polling_interval: 3600
+  polling_interval: 1200
   always: true
   key_list1:
     keys: ['DeviceName', 'SerialNumber', 'spreadname_en']
@@ -47,3 +47,7 @@ endpoint:
   # key or keys can be at this level but and useds this levels sending strategy
   keys:
     - 'WifiMacAddrWl1'
+    - 'WanIPAddress'
+    - 'wan_dns_address'
+    - 'WanIPv6Address'
+    - 'wan_ipv6_dns_address'
